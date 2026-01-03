@@ -32,8 +32,7 @@ services:
 
   data-generator:
     build: ./app
-    container_name: weather-data-generator
-    restart: always
+    container_name: data-generator
     depends_on:
       mysql:
         condition: service_healthy
