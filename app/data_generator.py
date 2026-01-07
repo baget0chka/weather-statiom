@@ -165,11 +165,9 @@ def init_sensors():
             
             for station_id, city in station_city_map.items():
                 for sensor_type_name in SENSOR_TYPES.keys():
-                    num_sensors = random.randint(1, 2)
-                    for i in range(num_sensors):
-                        sensor_code = generate_sensor_code(city, sensor_type_name, sensor_counter)
-                        sensors_data.append((sensor_code, type_map[sensor_type_name], station_id))
-                        sensor_counter += 1
+                    sensor_code = generate_sensor_code(city, sensor_type_name, sensor_counter)
+                    sensors_data.append((sensor_code, type_map[sensor_type_name], station_id))
+                    sensor_counter += 1
             
             cursor.executemany("INSERT INTO Sensor (sensor_code, type_id, station_id) VALUES (%s, %s, %s)", sensors_data)
             
