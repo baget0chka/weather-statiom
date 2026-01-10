@@ -50,6 +50,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       GENERATION_INTERVAL: 2 # секунды
+    restart: always
   server:
     <<: *redash-service
     command: server
