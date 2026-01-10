@@ -1,0 +1,108 @@
+x-redash-service: &redash-service
+  image: redash/redash:25.8.0
+  depends_on:
+    - postgres
+    - redis
+  env_file: ./.env
+  restart: always
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: weather-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  data-generator:
+    build: ./app
+    container_name: data-generator
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GENERATION_INTERVAL: 2 # секунды
+    restart: always
+  server:
+    <<: *redash-service
+    command: server
+    ports:
+      - "5000:5000"
+    environment:
+      REDASH_WEB_WORKERS: 4
+  scheduler:
+    <<: *redash-service
+    command: scheduler
+    depends_on:
+      - server
+  scheduled_worker:
+    <<: *redash-service
+    command: worker
+    depends_on:
+      - server
+    environment:
+      QUEUES: "scheduled_queries,schemas"
+      WORKERS_COUNT: 1
+  adhoc_worker:
+    <<: *redash-service
+    command: worker
+    depends_on:
+      - server
+    environment:
+      QUEUES: "queries"
+      WORKERS_COUNT: 2
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  postgres:
+    image: pgautoupgrade/pgautoupgrade:17-alpine
+    env_file: ./.env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+  nginx:
+    image: redash/nginx:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    links:
+      - server:redash
+    restart: always
+  worker:
+    <<: *redash-service
+    command: worker
+    environment:
+      QUEUES: "periodic,emails,default"
+      WORKERS_COUNT: 1
+volumes:
+  db_data:
+  postgres-data:
